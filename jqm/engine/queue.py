@@ -160,13 +160,16 @@ class JobQueue:
 
             # Cannot delete running job
             if job.is_running():
-                raise InvalidOperationError("Cannot delete running job")
+                raise InvalidOperationError(f"Cannot delete job {job_id}: job is currently running")
 
             # If queue is started/paused, can only delete jobs after running job
             if self.state in (QUEUE_STATE_STARTED, QUEUE_STATE_PAUSED):
                 if not self._is_job_editable(job):
+                    running_job = self._get_running_job_unlocked()
+                    running_id = running_job.id if running_job else "unknown"
                     raise InvalidOperationError(
-                        "Cannot delete job before running job when queue is started"
+                        f"Cannot delete job {job_id}: job {running_id} is currently running "
+                        f"and queue is {self.state}"
                     )
 
             self.jobs.remove(job)
@@ -190,13 +193,16 @@ class JobQueue:
 
             # Cannot update running job
             if job.is_running():
-                raise InvalidOperationError("Cannot update running job")
+                raise InvalidOperationError(f"Cannot update job {job_id}: job is currently running")
 
             # If queue is started/paused, can only update jobs after running job
             if self.state in (QUEUE_STATE_STARTED, QUEUE_STATE_PAUSED):
                 if not self._is_job_editable(job):
+                    running_job = self._get_running_job_unlocked()
+                    running_id = running_job.id if running_job else "unknown"
                     raise InvalidOperationError(
-                        "Cannot update job before running job when queue is started"
+                        f"Cannot update job {job_id}: job {running_id} is currently running "
+                        f"and queue is {self.state}"
                     )
 
             job.update(command, args, cwd)
@@ -219,11 +225,16 @@ class JobQueue:
 
             # Can only toggle between pending and skip
             if new_state not in (STATE_PENDING, STATE_SKIP):
-                raise ValueError(f"Can only set state to 'pending' or 'skip', got: {new_state}")
+                raise ValueError(
+                    f"Invalid state '{new_state}' for job {job_id}: "
+                    f"can only set to 'pending' or 'skip'"
+                )
 
             # Cannot change state of running job
             if job.is_running():
-                raise InvalidOperationError("Cannot change state of running job")
+                raise InvalidOperationError(
+                    f"Cannot change state of job {job_id}: job is currently running"
+                )
 
             if new_state == STATE_PENDING:
                 job.set_pending()
@@ -247,19 +258,25 @@ class JobQueue:
         with self._lock:
             valid_actions = (REORDER_TOP, REORDER_BOTTOM, REORDER_UP, REORDER_DOWN)
             if action not in valid_actions:
-                raise ValueError(f"Invalid reorder action: {action}")
+                raise ValueError(
+                    f"Invalid reorder action '{action}' for job {job_id}: "
+                    f"must be one of {valid_actions}"
+                )
 
             job = self._get_job_unlocked(job_id)
 
             # Cannot reorder running job
             if job.is_running():
-                raise InvalidOperationError("Cannot reorder running job")
+                raise InvalidOperationError(f"Cannot reorder job {job_id}: job is currently running")
 
             # If queue is started/paused, can only reorder jobs after running job
             if self.state in (QUEUE_STATE_STARTED, QUEUE_STATE_PAUSED):
                 if not self._is_job_editable(job):
+                    running_job = self._get_running_job_unlocked()
+                    running_id = running_job.id if running_job else "unknown"
                     raise InvalidOperationError(
-                        "Cannot reorder job before running job when queue is started"
+                        f"Cannot reorder job {job_id}: job {running_id} is currently running "
+                        f"and queue is {self.state}"
                     )
 
             # Get current position
