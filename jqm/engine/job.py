@@ -1,6 +1,6 @@
 """Job class representing a single job in the queue."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from jqm.common.constants import (
@@ -97,11 +97,11 @@ class Job:
         self.to_skip = True
 
     def start(self) -> None:
-        """Mark job as running and record start time."""
+        """Mark job as running and record start time (UTC)."""
         if self.state == STATE_RUNNING:
             raise ValueError("Job is already running")
         self.state = STATE_RUNNING
-        self.started_at = datetime.now().isoformat()
+        self.started_at = datetime.now(timezone.utc).isoformat()
         self.exit_code = None
         self.ended_at = None
 
@@ -115,7 +115,7 @@ class Job:
             raise ValueError("Can only complete a running job")
 
         self.exit_code = exit_code
-        self.ended_at = datetime.now().isoformat()
+        self.ended_at = datetime.now(timezone.utc).isoformat()
 
         if exit_code == 0:
             self.state = STATE_COMPLETED
