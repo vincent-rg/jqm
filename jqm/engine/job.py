@@ -1,5 +1,6 @@
 """Job class representing a single job in the queue."""
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,6 +11,8 @@ from jqm.common.constants import (
     STATE_RUNNING,
     STATE_SKIP,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Job:
@@ -86,15 +89,19 @@ class Job:
         """Mark job as pending (ready to run)."""
         if self.state == STATE_RUNNING:
             raise ValueError("Cannot change state of running job")
+        old_state = self.state
         self.state = STATE_PENDING
         self.to_skip = False
+        logger.debug(f"Job {self.id} state changed: {old_state} -> {STATE_PENDING}")
 
     def set_skip(self) -> None:
         """Mark job to be skipped."""
         if self.state == STATE_RUNNING:
             raise ValueError("Cannot change state of running job")
+        old_state = self.state
         self.state = STATE_SKIP
         self.to_skip = True
+        logger.debug(f"Job {self.id} state changed: {old_state} -> {STATE_SKIP}")
 
     def start(self) -> None:
         """Mark job as running and record start time (UTC)."""
@@ -104,6 +111,7 @@ class Job:
         self.started_at = datetime.now(timezone.utc).isoformat()
         self.exit_code = None
         self.ended_at = None
+        logger.info(f"Job {self.id} started: {self.command}")
 
     def complete(self, exit_code: int) -> None:
         """Mark job as completed with exit code.
@@ -119,8 +127,10 @@ class Job:
 
         if exit_code == 0:
             self.state = STATE_COMPLETED
+            logger.info(f"Job {self.id} completed successfully (exit code: 0)")
         else:
             self.state = STATE_FAILED
+            logger.warning(f"Job {self.id} failed (exit code: {exit_code})")
 
     def update(self, command: str, args: list[str], cwd: str) -> None:
         """Update job command and arguments.
@@ -136,9 +146,11 @@ class Job:
         if self.state == STATE_RUNNING:
             raise ValueError("Cannot update running job")
 
+        old_command = self.command
         self.command = command
         self.args = args
         self.cwd = cwd
+        logger.debug(f"Job {self.id} updated: {old_command} -> {command}")
 
     def to_dict(self) -> dict:
         """Convert job to dictionary representation.
