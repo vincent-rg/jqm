@@ -144,12 +144,12 @@ class Job:
         """Convert job to dictionary representation.
 
         Returns:
-            Dictionary with all job fields
+            Dictionary with all job fields (args list is copied)
         """
         return {
             "id": self.id,
             "command": self.command,
-            "args": self.args,
+            "args": self.args.copy(),
             "cwd": self.cwd,
             "state": self.state,
             "to_skip": self.to_skip,

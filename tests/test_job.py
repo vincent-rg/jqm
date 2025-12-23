@@ -248,6 +248,18 @@ class TestJobUpdate(unittest.TestCase):
 class TestJobToDict(unittest.TestCase):
     """Test cases for job serialization."""
 
+    def test_to_dict_returns_copy_of_args(self):
+        """Test that to_dict returns a copy of args, not reference."""
+        job = Job(1, "python", ["test.py", "--verbose"], "/tmp")
+
+        result = job.to_dict()
+        # Modify the returned args
+        result["args"].append("--hacked")
+
+        # Original job should not be affected
+        self.assertEqual(job.args, ["test.py", "--verbose"])
+        self.assertNotIn("--hacked", job.args)
+
     def test_to_dict_pending_job(self):
         """Test converting pending job to dictionary."""
         job = Job(1, "python", ["test.py", "--verbose"], "/tmp/project")
