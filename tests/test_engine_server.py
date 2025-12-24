@@ -275,6 +275,95 @@ class TestEngineServerIntegration(unittest.TestCase):
         self.assertTrue(response3["success"])
         self.assertEqual(len(response3["data"]["jobs"]), 2)
 
+    def test_job_execution_end_to_end(self):
+        """Test full job execution workflow via TCP API."""
+        # Add a job
+        send_message(self.client, {
+            "cmd": "add_job",
+            "data": {"command": "echo", "args": ["hello from test"], "cwd": "/tmp"},
+        })
+        add_response = receive_message(self.client)
+        job_id = add_response["data"]["job_id"]
+
+        # Start the queue
+        send_message(self.client, {"cmd": "set_queue_state", "state": "started"})
+        receive_message(self.client)
+
+        # Wait for job to execute
+        time.sleep(1)
+
+        # Check job completed
+        send_message(self.client, {"cmd": "list_jobs"})
+        list_response = receive_message(self.client)
+
+        job = next(j for j in list_response["data"]["jobs"] if j["id"] == job_id)
+        self.assertEqual(job["state"], "completed")
+        self.assertEqual(job["exit_code"], 0)
+
+        # Get log file
+        send_message(self.client, {"cmd": "get_job_log", "job_id": job_id})
+        log_response = receive_message(self.client)
+
+        self.assertTrue(log_response["success"])
+        log_content = log_response["data"]["log"]
+        self.assertIn("hello from test", log_content)
+        self.assertIn("started at", log_content)
+        self.assertIn("ended at", log_content)
+
+    def test_job_execution_failure(self):
+        """Test job execution with failing command."""
+        # Add a job that will fail
+        send_message(self.client, {
+            "cmd": "add_job",
+            "data": {"command": "false", "args": [], "cwd": "/tmp"},
+        })
+        add_response = receive_message(self.client)
+        job_id = add_response["data"]["job_id"]
+
+        # Start the queue
+        send_message(self.client, {"cmd": "set_queue_state", "state": "started"})
+        receive_message(self.client)
+
+        # Wait for job to execute
+        time.sleep(1)
+
+        # Check job failed
+        send_message(self.client, {"cmd": "list_jobs"})
+        list_response = receive_message(self.client)
+
+        job = next(j for j in list_response["data"]["jobs"] if j["id"] == job_id)
+        self.assertEqual(job["state"], "failed")
+        self.assertNotEqual(job["exit_code"], 0)
+
+    def test_multiple_jobs_sequential_execution(self):
+        """Test that multiple jobs execute sequentially."""
+        # Add multiple jobs
+        job_ids = []
+        for i in range(3):
+            send_message(self.client, {
+                "cmd": "add_job",
+                "data": {"command": "echo", "args": [f"job{i}"], "cwd": "/tmp"},
+            })
+            response = receive_message(self.client)
+            job_ids.append(response["data"]["job_id"])
+
+        # Start the queue
+        send_message(self.client, {"cmd": "set_queue_state", "state": "started"})
+        receive_message(self.client)
+
+        # Wait for all jobs to complete
+        time.sleep(2)
+
+        # Check all jobs completed
+        send_message(self.client, {"cmd": "list_jobs"})
+        list_response = receive_message(self.client)
+
+        for job_id in job_ids:
+            job = next(j for j in list_response["data"]["jobs"] if j["id"] == job_id)
+            self.assertEqual(job["state"], "completed")
+            self.assertIsNotNone(job["started_at"])
+            self.assertIsNotNone(job["ended_at"])
+
 
 if __name__ == "__main__":
     unittest.main()

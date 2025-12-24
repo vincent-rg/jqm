@@ -18,6 +18,7 @@ from jqm.common.protocol import (
 )
 from jqm.engine.dispatcher import CommandDispatcher
 from jqm.engine.event_broadcaster import EventBroadcaster
+from jqm.engine.executor import JobExecutor
 from jqm.engine.queue import JobQueue
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class EngineServer:
         self.queue = JobQueue()
         self.dispatcher = CommandDispatcher(self.queue, log_dir)
         self.broadcaster = EventBroadcaster()
+        self.executor = JobExecutor(self.queue, self.broadcaster, log_dir)
 
         self._server_socket: socket.socket | None = None
         self._running = False
@@ -64,6 +66,11 @@ class EngineServer:
             return
 
         self._running = True
+
+        # Start job executor
+        self.executor.start()
+
+        # Start TCP server
         self._server_thread = threading.Thread(target=self._run_server, daemon=True)
         self._server_thread.start()
 
@@ -76,6 +83,9 @@ class EngineServer:
 
         logger.info("Stopping engine server...")
         self._running = False
+
+        # Stop job executor
+        self.executor.stop()
 
         # Close server socket to unblock accept()
         if self._server_socket:
