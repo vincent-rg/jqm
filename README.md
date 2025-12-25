@@ -2,6 +2,25 @@
 
 A job queue management system for sequential command execution with HTTP and CLI interfaces.
 
+## 🚧 Implementation Status
+
+**Currently Implemented** (143 tests passing):
+- ✅ Engine core (Job, JobQueue with full state machine)
+- ✅ TCP/JSON protocol with 8-byte length prefix
+- ✅ Engine TCP server (port 5051) with all 11 API commands
+- ✅ Job execution with subprocess management
+- ✅ Real-time event broadcasting
+- ✅ Log file streaming
+
+**Pending**:
+- ⏳ CLI Server (TCP relay to engine)
+- ⏳ CLI Client (`jqm` command-line tool)
+- ⏳ HTTP Server (REST API + SSE)
+- ⏳ HTTP Client (web interface)
+- ⏳ Process management (`jqm-server` command)
+
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for detailed progress.
+
 ## Overview
 
 JQM manages a queue of jobs (shell commands) and executes them sequentially. It consists of three independent processes communicating via TCP:
